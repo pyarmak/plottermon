@@ -1,0 +1,26 @@
+{
+  "name": "plottermon",
+  "version": "0.0.1",
+  "description": "An interactive CLI tool to monitor chia cryptocurrency plotting",
+  "bin": {
+    "plottermon": "./plottermon.js"
+  },
+  "main": "plottermon.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "blockchain",
+    "chia",
+    "chia-blockchain"
+  ],
+  "author": "Pavel Yarmak",
+  "license": "MIT",
+  "dependencies": {
+    "@logdna/tail-file": "^2.0.6",
+    "chokidar": "^3.5.1",
+    "cli-progress": "^3.9.0",
+    "split2": "^3.2.2",
+    "yargs": "^16.2.0"
+  }
+}
