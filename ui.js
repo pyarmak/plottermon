@@ -27,48 +27,140 @@ class UI {
 
     init() {
         this.nav = this.createNav();
-        // this.nav = this.createForm();
-        // this.table = this.createTable();
+        this.monitorTab = this.createContentBox();
+        this.createTab = this.createContentBox();
+        this.aboutTab = this.createContentBox();
+        this.currentTab = {name: 'Monitor', widget: this.monitorTab};
+    }
+
+    createContentBox() {
+        return blessed.layout({
+            parent: this.layout,
+            top: this.navContainer.abottom,
+            left: 0,
+            width: '100%-1',
+            height: `99%-${this.navContainer.height}`,
+            border: 'line'
+        });
+    }
+
+    createDetailsTable() {
+        return blessed.table({
+            parent: this.monitorTab,
+            width: '99%',
+            left: 0,
+            top: this.plotSeparator.abottom,
+        });
+    }
+
+    updateDetailsTable(name) {
+        const argv = this.plots[name].argv;
+        this.detailsTable.setData([
+            Object.keys(argv),
+            Object.values(argv).map(v => v.toString())
+        ]);
     }
 
     setProgress(name, value, title) {
-        this.plotProgressBars[name].setProgress(value);
-        this.plotProgressBars[name].content = title;
+        const bar = this.plotProgressBars[name];
+        bar.setProgress(value);
+        bar.content = title;
         this.screen.render();
+    }
+
+    createSeparator(parent, alignmentParent) {
+        return blessed.line({
+            parent: parent,
+            width: '99%',
+            left: 0,
+            top: alignmentParent.abottom,
+            orientation: 'horizontal',
+            type: 'bg',
+            ch: '-'
+        });
     }
 
     initProgressBars(plots) {
         let button;
+
+        this.plots = plots;
+        
         for (const [name, plot] of Object.entries(plots)) {
             const parent = button ? button : this.nav;
-            button = this.createOverview(parent);
+            button = this.createProgressDetailsButton(parent, name);
             this.plotProgressBars[name] = this.createProgressBar(button, name);
         }
+        
+        this.plotSeparator = this.createSeparator(this.monitorTab, button);
+        this.detailsTable = this.createDetailsTable();
     }
 
     createNav() {
-        return blessed.listbar({
+        this.navContainer = blessed.box({
             parent: this.layout,
             top: 0,
             left: 0,
-            width: '100%',
-            height: 2,
-            commands: {
-                'Overview': {
+            width: '100%-1',
+            height: 3,
+            border: 'line',
+        });
+
+        return blessed.listbar({
+            parent: this.navContainer,
+            top: 0,
+            left: 0,
+            width: '99%',
+            height: '50%',
+            mouse: true,
+            commands: { // TODO: DRY this up
+                'Monitor': {
                     keys: [1],
-                    callback: () => {}
+                    callback: () => {
+                        if (this.currentTab.name === 'Monitor') return;
+                        this.currentTab.widget.toggle();
+                        this.monitorTab.toggle();
+                        this.currentTab.name = 'Monitor';
+                        this.currentTab.widget = this.monitorTab;
+                    }
                 },
-                'Details': {
+                'Create': {
                     keys: [2],
-                    callback: () => {}
+                    callback: () => {
+                        if (this.currentTab.name === 'Create') return;
+                        this.currentTab.widget.toggle();
+                        this.createTab.toggle();
+                        this.currentTab.name = 'Create';
+                        this.currentTab.widget = this.createTab;
+                    }
+                },
+                'About': {
+                    keys: [3],
+                    callback: () => {
+                        if (this.currentTab.name === 'About') return;
+                        this.currentTab.widget.toggle();
+                        this.aboutTab.toggle();
+                        this.currentTab.name = 'About';
+                        this.currentTab.widget = this.aboutTab;
+                    }
+                }
+            },
+            style: {
+                selected: {
+                    fg: 'blue'
+                },
+                item: {
+                    fg: '#676767',
+                    hover: {
+                        fg: 'red'
+                    }
                 }
             }
         })
     }
 
-    createOverview(alignParent) {
+    createProgressDetailsButton(alignParent, name) {
         const form = blessed.form({
-            parent: this.layout,
+            parent: this.monitorTab,
             keys: true,
             top: alignParent.abottom,
             left: 0,
@@ -104,12 +196,16 @@ class UI {
             }
         });
 
+        details.on('press', () => {
+            this.updateDetailsTable(name);
+        });
+
         return form;
     }
 
     createProgressBar(button, name) {
         return blessed.progressbar({
-            parent: this.layout,
+            parent: this.monitorTab,
             content: name,
             orientation: 'horizontal',
             top: button.atop,
@@ -128,92 +224,8 @@ class UI {
         });
     }
 
-    createForm() {
-        const form = blessed.form({
-            parent: this.layout,
-            keys: true,
-            left: 0,
-            top: 0,
-            width: '100%',
-            height: 1,
-            bg: 'white',
-        });
-
-        const submit = blessed.button({
-            parent: form,
-            mouse: true,
-            keys: true,
-            shrink: true,
-            padding: {
-                left: 1,
-                right: 1
-            },
-            left: 0,
-            top: 0,
-            shrink: true,
-            name: 'submit',
-            content: 'submit',
-            style: {
-                bg: 'blue',
-                focus: {
-                    bg: 'red'
-                },
-                hover: {
-                    bg: 'red'
-                }
-            }
-        });
-
-        const cancel = blessed.button({
-            parent: form,
-            mouse: true,
-            keys: true,
-            shrink: true,
-            padding: {
-                left: 1,
-                right: 1
-            },
-            left: 20,
-            top: 0,
-            shrink: true,
-            name: 'cancel',
-            content: 'cancel',
-            style: {
-                bg: 'blue',
-                focus: {
-                    bg: 'red'
-                },
-                hover: {
-                    bg: 'red'
-                }
-            }
-        });
-
-        submit.on('press', function () {
-            form.submit();
-        });
-
-        cancel.on('press', function () {
-            form.reset();
-        });
-
-        form.on('submit', function (data) {
-            form.setContent('Submitted.');
-            this.screen.render();
-        });
-
-        form.on('reset', function (data) {
-            form.setContent('Canceled.');
-            this.screen.render();
-        });
-
-        return form;
-    }
-
     draw() {
         this.screen.append(this.layout);
-        // this.screen.append(this.nav);
-        // this.screen.append(this.form);
         this.screen.render();
     }
 }

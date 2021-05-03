@@ -25,19 +25,14 @@ class Main {
 
     this.argv = yargs
       .usage('Usage: $0 <command> [options]')
-      .command('watch <directory>', 'Continuously monitor the progress of all chia plots logging to files in given directory', (yargs) => {
-        yargs.positional('directory', {
-          describe: 'The directory where chia plotter logs are located',
-          type: 'string'
-        })
-      })
+      .command('watch', 'Continuously monitor the progress of all active chia plots')
       .command('print <directory>', 'Print the current progress of all chia plots logging to files in given directory', (yargs) => {
         yargs.positional('directory', {
           describe: 'The directory where chia plotter logs are located',
           type: 'string'
         })
       })
-      .example('$0 follow ~/chialogs', 'Continuously monitor the progress of all chia plots logging to files in ~/chialogs')
+      .example('$0 watch ~/chialogs', 'Continuously monitor the progress of all chia plots logging to files in ~/chialogs')
       .demandCommand(1, 'No command provided. Please provide a command e.g. watch')
       .wrap(Math.min(100, yargs.terminalWidth()))
       .help('h')
