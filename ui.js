@@ -1,24 +1,31 @@
+const os = require('os');
 const blessed = require('blessed');
+const contrib = require('blessed-contrib');
 
 class UI {
-    constructor() {
+    constructor(quitCallback) {
         this.screen = blessed.screen({
             smartCSR: true
         });
         this.screen.title = 'Plottermon - Chia Plotting Monitor';
-        this.layout = blessed.layout({
-            parent: this.screen,
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            border: 'none',
-        });
+        // this.layout = blessed.layout({
+        //     parent: this.screen,
+        //     top: 0,
+        //     left: 0,
+        //     width: '100%',
+        //     height: '100%',
+        //     border: 'none',
+        // });
+
+        // this.grid = new contrib.grid({rows: 12, cols: 12, screen: this.screen});
 
         this.plotProgressBars = {};
 
+        this.TOTAL_MEM = os.totalmem();
+
         // Quit on Escape, q, or Control-C.
         this.screen.key(['escape', 'q', 'C-c'], function (ch, key) {
+            if (quitCallback && typeof quitCallback === 'function') quitCallback();
             return process.exit(0);
         });
         
@@ -26,11 +33,38 @@ class UI {
     }
 
     init() {
-        this.nav = this.createNav();
-        this.monitorTab = this.createContentBox();
-        this.createTab = this.createContentBox();
-        this.aboutTab = this.createContentBox();
-        this.currentTab = {name: 'Monitor', widget: this.monitorTab};
+        this.monitorTab = this.createTab('Monitor');
+        this.spawnTab = this.createTab('Create');
+        this.aboutTab = this.createTab('About');
+        this.initLayout();
+        // this.nav = this.createNav();
+        // this.monitorTab = this.createContentBox();
+        // this.createTab = this.createContentBox();
+        // this.aboutTab = this.createContentBox();
+        // this.currentTab = {name: 'Monitor', widget: this.monitorTab};
+    }
+
+    createTab(title) {
+        return (screen) => {
+            const grid = new contrib.grid({rows: 12, cols: 12, screen: this.screen});
+            // const box = blessed.box({content: title, top: '80%', left: '10%'});
+            grid.set(0, 0, 1, 1, blessed.box, {content: title, top: '80%', left: '10%'})
+        };
+    }
+
+    initLayout() {
+        // Add method to carousel layout to move to specific tab
+        contrib.carousel.prototype.setTab = function(index) {
+            if (index > this.pages.length - 1) return;
+            this.currPage = index;
+            this.move();
+        };
+
+        this.layout = new contrib.carousel( [this.monitorTab, this.spawnTab, this.aboutTab]
+                                        , { screen: this.screen
+                                        , interval: 0 //how often to switch views (set 0 to never swicth automatically)
+                                        , controlKeys: true  //should right and left keyboard arrows control view rotation
+                                        });
     }
 
     createContentBox() {
@@ -49,15 +83,26 @@ class UI {
             parent: this.monitorTab,
             width: '99%',
             left: 0,
-            top: this.plotSeparator.abottom,
+            top: this.donutSeparator.abottom,
         });
     }
 
     updateDetailsTable(name) {
-        const argv = this.plots[name].argv;
+        const {argv, logLocation} = this.plots[name];
+        let header = Object.keys(argv);
+        let data = Object.values(argv).map(v => v.toString());
+        header.push('log');
+        data.push(logLocation);
         this.detailsTable.setData([
-            Object.keys(argv),
-            Object.values(argv).map(v => v.toString())
+            header,
+            data
+        ]);
+    }
+
+    updateCpuDonut(name) {
+        const cpu = this.plots[name].process.cpu;
+        this.donut.setData([
+            {percent: cpu, lable: 'CPU', color: 'green'}
         ]);
     }
 
@@ -80,7 +125,7 @@ class UI {
         });
     }
 
-    initProgressBars(plots) {
+    initMonitorTab(plots) {
         let button;
 
         this.plots = plots;
@@ -92,33 +137,49 @@ class UI {
         }
         
         this.plotSeparator = this.createSeparator(this.monitorTab, button);
-        this.detailsTable = this.createDetailsTable();
+        this.donut = contrib.donut({
+            parent: this.monitorTab,
+            top: 0,
+            left: 0,
+            label: 'Resources',
+            radius: 8,
+            arcWidth: 3,
+            remainColor: 'black',
+            yPadding: 2,
+            data: [
+                {percent: 80, label: 'CPU', color: 'green'}
+            ]
+        });
+        // this.donutSeparator = this.createSeparator(this.monitorTab, this.donut);
+        // this.detailsTable = this.createDetailsTable();
     }
 
     createNav() {
-        this.navContainer = blessed.box({
-            parent: this.layout,
-            top: 0,
-            left: 0,
-            width: '100%-1',
-            height: 3,
-            border: 'line',
-        });
 
-        return blessed.listbar({
-            parent: this.navContainer,
-            top: 0,
-            left: 0,
-            width: '99%',
-            height: '50%',
+        // this.navContainer = this.grid.set(12, 3, 12, 3, blessed.box, {
+        //     top: 0,
+        //     left: 0,
+        //     width: '100%-1',
+        //     height: 3,
+        //     border: 'line',
+        // });
+
+        // this.navContainer = blessed.box({
+        //     parent: this.layout,
+        //     top: 0,
+        //     left: 0,
+        //     width: '100%-1',
+        //     height: 3,
+        //     border: 'line',
+        // });
+
+        return this.grid.set(0, 0, 1, 12, blessed.listbar, {
             mouse: true,
             commands: { // TODO: DRY this up
                 'Monitor': {
                     keys: [1],
                     callback: () => {
                         if (this.currentTab.name === 'Monitor') return;
-                        this.currentTab.widget.toggle();
-                        this.monitorTab.toggle();
                         this.currentTab.name = 'Monitor';
                         this.currentTab.widget = this.monitorTab;
                     }
@@ -197,7 +258,8 @@ class UI {
         });
 
         details.on('press', () => {
-            this.updateDetailsTable(name);
+            this.updateCpuDonut(name);
+            // this.updateDetailsTable(name);
         });
 
         return form;
@@ -225,8 +287,9 @@ class UI {
     }
 
     draw() {
-        this.screen.append(this.layout);
-        this.screen.render();
+        // this.screen.append(this.layout);
+        // this.screen.render();
+        this.layout.start();
     }
 }
 
