@@ -31,9 +31,12 @@ class Main {
   checkCommands() {
     switch (this.command) {
       case "watch":
-        this.ui = new UI();
         this.initLogAnalyzer();
         this.initPlotProcessMonitor();
+        this.ui = new UI(() => {
+          this.plots.kill();
+          this.analyzer.kill();
+        });
         break;
       case "print":
         this.initLogAnalyzer();
@@ -49,11 +52,21 @@ class Main {
   initLogAnalyzer() {
     const analyzerPath = path.resolve('logAnalyzer.js');
     const options = {
-      stdio: [ 'ignore', 'inherit', 'inherit', 'ipc' ] // ignore stdin, use parent stdout & stderr, create ipc channel
+      stdio: ['ignore', 'inherit', 'inherit', 'ipc'] // ignore stdin, use parent stdout & stderr, create ipc channel
     };
     const parameters = [];
 
     this.analyzer = fork(analyzerPath, parameters, options);
+
+    if (this.command == 'watch') {
+      this.analyzer.on('message', message => {
+        switch (message.type) {
+          case messages.PROGRESS_UPDATE:
+            this.ui.setProgress(...message.payload);
+            break;
+        }
+      });
+    }
   }
 
   initPlotProcessMonitor() {
@@ -65,27 +78,19 @@ class Main {
 
     this.plots = fork(monitorPath, parameters, options);
 
-    this.plots.on('message', (message) => {
+    this.plots.on('message', message => {
       switch (message.type) {
         case messages.PLOT_RESPONSE:
           const plots = message.payload;
 
-          if (this.command == 'print') {
-            const logs = Object.entries(plots).map(plot => plot[1].logLocation);
-            const names = Object.keys(plots);
-
-            const payload = [];
-            for (const i in logs) {
-              payload.push([logs[i], names[i]]);
-            }
-
-            this.analyzer.send({
-              type: this.command,
-              payload: payload
-            });
-          } else {
+          if (this.command == 'watch') {
             this.ui.setPlots(plots);
           }
+
+          this.analyzer.send({
+            type: this.command,
+            payload: this.getAnalyzerPayload(plots)
+          });
           break;
       }
     });
@@ -93,6 +98,18 @@ class Main {
     this.plots.send({
       type: messages.PRINT
     })
+  }
+
+  getAnalyzerPayload(plots) {
+    const payload = [];
+    const logs = Object.entries(plots).map(plot => plot[1].logLocation);
+    const names = Object.keys(plots);
+
+    for (const i in logs) {
+      payload.push([logs[i], names[i]]);
+    }
+
+    return payload;
   }
 
 }

@@ -1,7 +1,6 @@
 const os = require('os');
 const blessed = require('blessed');
 const contrib = require('blessed-contrib');
-const grid = require('./grid'); // override blessed-contrib grid to accomodate navbar
 
 class UI {
     constructor(quitCallback) {
@@ -20,7 +19,26 @@ class UI {
     }
 
     init() {
-        this.plotProgressBars = {};
+        this.state = {
+            _plots: null,
+            _plotsListeners: [],
+            plotProgressBars: {},
+            currentProgress: {},
+            get plots() {
+                return this._plots;
+            },
+            set plots(v) {
+                this._plots = v;
+                if (this._plotsListeners.length > 0) {
+                    for (const listener of this._plotsListeners) {
+                        listener(v);
+                    }
+                }
+            },
+            addListener: function(type, listener) {
+                this['_'+type+'Listeners'].push(listener);
+            }
+        };
 
         this.TOTAL_MEM = os.totalmem();
 
@@ -37,13 +55,44 @@ class UI {
 
     createTab(title) {
         return (screen) => {
-            const content = new grid({rows: 12, cols: 12, screen: this.screen});
+            // const content = new grid({rows: 12, cols: 12, screen: this.screen, hideBorder: true});
 
-            content.set(0, 0, 1, 1, blessed.box, {content: title});
             this.nav = this.createNav();
-            this.screen.append(this.nav);
+            screen.append(this.nav);
             this.nav.select(this.currentTabIndex());
+
+            this.content = this.createContentBox();
+            screen.append(this.content);
+
+            if (title == 'Monitor') {
+                if (this.state.plots) {
+                    this.initMonitorTab(this.state.plots);
+                    if (Object.keys(this.state.currentProgress).length > 0) {
+                        for (const payload of Object.values(this.state.currentProgress)) {
+                            this.setProgress(...payload);
+                        }
+                    }
+
+                    this.screen.render();
+                }
+                this.state.addListener('plots', plots => {
+                    this.initMonitorTab(plots);
+                    this.screen.render();
+                });
+            } else {
+                // content.set(0, 0, 2, 2, blessed.box, {content: title});
+            }
         };
+    }
+
+    createContentBox() {
+        return blessed.layout({
+            top: 1,
+            left: 0,
+            width: '100%',
+            height: '100%-1',
+            border: 'line'
+        });
     }
 
     initLayout(pages) {
@@ -133,7 +182,8 @@ class UI {
     }
 
     setProgress(name, value, title) {
-        const bar = this.plotProgressBars[name];
+        this.state.currentProgress[name] = [name, value, title];
+        const bar = this.state.plotProgressBars[name];
         bar.setProgress(value);
         bar.content = title;
         this.screen.render();
@@ -153,29 +203,28 @@ class UI {
 
     initMonitorTab(plots) {
         let button;
-
-        this.plots = plots;
         
         for (const [name, plot] of Object.entries(plots)) {
             const parent = button ? button : this.nav;
             button = this.createProgressDetailsButton(parent, name);
-            this.plotProgressBars[name] = this.createProgressBar(button, name);
+            this.state.plotProgressBars[name] = this.createProgressBar(button, name);
         }
         
-        this.plotSeparator = this.createSeparator(this.monitorTab, button);
-        this.donut = contrib.donut({
-            parent: this.monitorTab,
-            top: 0,
-            left: 0,
-            label: 'Resources',
-            radius: 8,
-            arcWidth: 3,
-            remainColor: 'black',
-            yPadding: 2,
-            data: [
-                {percent: 80, label: 'CPU', color: 'green'}
-            ]
-        });
+        // this.plotSeparator = this.createSeparator(this.monitorTab, button);
+
+        // this.donut = contrib.donut({
+        //     parent: this.monitorTab,
+        //     top: 0,
+        //     left: 0,
+        //     label: 'Resources',
+        //     radius: 8,
+        //     arcWidth: 3,
+        //     remainColor: 'black',
+        //     yPadding: 2,
+        //     data: [
+        //         {percent: 80, label: 'CPU', color: 'green'}
+        //     ]
+        // });
         // this.donutSeparator = this.createSeparator(this.monitorTab, this.donut);
         // this.detailsTable = this.createDetailsTable();
     }
@@ -223,7 +272,7 @@ class UI {
 
     createProgressDetailsButton(alignParent, name) {
         const form = blessed.form({
-            parent: this.monitorTab,
+            parent: this.content,
             keys: true,
             top: alignParent.abottom,
             left: 0,
@@ -269,7 +318,7 @@ class UI {
 
     createProgressBar(button, name) {
         return blessed.progressbar({
-            parent: this.monitorTab,
+            parent: this.content,
             content: name,
             orientation: 'horizontal',
             top: button.atop,
@@ -289,7 +338,7 @@ class UI {
     }
 
     setPlots(plots) {
-        this.plots = plots;
+        this.state.plots = plots;
     }
 
 }

@@ -25,13 +25,19 @@ class LogAnalyzer {
             switch (message.type) {
                 case messages.PRINT:
                     const promises = [];
+                    this.command = 'print';
                     for (const file of message.payload) {
-                        this.command = 'print';
                         promises.push(this.processFile(...file));
                     }
                     Promise.all(promises).then(() => {
                         process.exit();
                     });
+                    break;
+                case messages.WATCH:
+                    this.command = 'watch';
+                    for (const file of message.payload) {
+                        this.processFile(...file);
+                    }
                     break;
             }
         });
@@ -80,7 +86,15 @@ class LogAnalyzer {
         let currentProgress = initialProgress;
         currentProgress.spinner = 0;
 
-        this.ui.setProgress(name, this.calculateProgress(initialProgress), this.getTitle(name, currentProgress));
+        // this.ui.setProgress(name, this.calculateProgress(initialProgress), this.getTitle(name, currentProgress));
+        process.send({
+            type: messages.PROGRESS_UPDATE,
+            payload: [
+                name,
+                this.calculateProgress(initialProgress),
+                this.getTitle(name, currentProgress)
+            ]
+        });
 
         const tail = new TailFile(filePath);
 
@@ -97,7 +111,15 @@ class LogAnalyzer {
                 if (res[1] !== undefined) currentProgress.stage = res[1];
                 if (res[2]) currentProgress.done++;
                 (currentProgress.spinner === this.SPINNER.length - 1) ? currentProgress.spinner = 0 : currentProgress.spinner++;
-                this.ui.setProgress(name, this.calculateProgress(currentProgress), this.getTitle(name, currentProgress));
+                // this.ui.setProgress(name, this.calculateProgress(currentProgress), this.getTitle(name, currentProgress));
+                process.send({
+                    type: messages.PROGRESS_UPDATE,
+                    payload: [
+                        name,
+                        this.calculateProgress(currentProgress),
+                        this.getTitle(name, currentProgress)
+                    ]
+                });
             });
 
         tail.start().catch((err) => {
