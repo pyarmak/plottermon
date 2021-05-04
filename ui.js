@@ -1,6 +1,7 @@
 const os = require('os');
 const blessed = require('blessed');
 const contrib = require('blessed-contrib');
+const grid = require('./grid'); // override blessed-contrib grid to accomodate navbar
 
 class UI {
     constructor(quitCallback) {
@@ -8,16 +9,6 @@ class UI {
             smartCSR: true
         });
         this.screen.title = 'Plottermon - Chia Plotting Monitor';
-        // this.layout = blessed.layout({
-        //     parent: this.screen,
-        //     top: 0,
-        //     left: 0,
-        //     width: '100%',
-        //     height: '100%',
-        //     border: 'none',
-        // });
-
-        // this.grid = new contrib.grid({rows: 12, cols: 12, screen: this.screen});
 
         this.plotProgressBars = {};
 
@@ -33,26 +24,28 @@ class UI {
     }
 
     init() {
-        this.monitorTab = this.createTab('Monitor');
-        this.spawnTab = this.createTab('Create');
-        this.aboutTab = this.createTab('About');
-        this.initLayout();
-        // this.nav = this.createNav();
-        // this.monitorTab = this.createContentBox();
-        // this.createTab = this.createContentBox();
-        // this.aboutTab = this.createContentBox();
-        // this.currentTab = {name: 'Monitor', widget: this.monitorTab};
+        this.tabs = ['Monitor', 'Create', 'About'];
+        this.currentTab = this.tabs[0];
+        const pages = [];
+
+        for (const tab of this.tabs) {
+            pages.push(this.createTab(tab));
+        }
+        this.initLayout(pages);
     }
 
     createTab(title) {
         return (screen) => {
-            const grid = new contrib.grid({rows: 12, cols: 12, screen: this.screen});
-            // const box = blessed.box({content: title, top: '80%', left: '10%'});
-            grid.set(0, 0, 1, 1, blessed.box, {content: title, top: '80%', left: '10%'})
+            const content = new grid({rows: 12, cols: 12, screen: this.screen});
+
+            content.set(0, 0, 1, 1, blessed.box, {content: title});
+            this.nav = this.createNav();
+            this.screen.append(this.nav);
+            this.nav.select(this.currentTabIndex());
         };
     }
 
-    initLayout() {
+    initLayout(pages) {
         // Add method to carousel layout to move to specific tab
         contrib.carousel.prototype.setTab = function(index) {
             if (index > this.pages.length - 1) return;
@@ -60,11 +53,53 @@ class UI {
             this.move();
         };
 
-        this.layout = new contrib.carousel( [this.monitorTab, this.spawnTab, this.aboutTab]
+        this.layout = new contrib.carousel( pages
                                         , { screen: this.screen
                                         , interval: 0 //how often to switch views (set 0 to never swicth automatically)
-                                        , controlKeys: true  //should right and left keyboard arrows control view rotation
+                                        , controlKeys: false  //should right and left keyboard arrows control view rotation
+                                        , rotate: true
                                         });
+
+        this.screen.key(['right', 'left', 'home', 'end'], (ch, key) => {
+            if (key.name=='right') this.nextTab();
+            if (key.name=='left') this.prevTab();
+            if (key.name=='home') {
+                this.currentTab = this.tabIndexToName(0);
+                this.layout.home();
+            }
+            if (key.name=='end') {
+                this.currentTab = this.tabIndexToName(this.tabs.length - 1);
+                this.layout.end();
+            }
+        });
+    }
+
+    tabIndexToName(i) {
+        return this.tabs[i];
+    }
+
+    tabNameToIndex(name) {
+        return this.tabs.indexOf(name);
+    }
+
+    currentTabIndex() {
+        return this.tabs.indexOf(this.currentTab);
+    }
+
+    nextTab() {
+        let currPage = this.currentTabIndex();
+        if (++currPage == this.tabs.length) this.currentTab = this.tabIndexToName(0);
+        else this.currentTab = this.tabIndexToName(currPage);
+        this.layout.next();
+        this.nav.select(this.currentTabIndex());
+    }
+
+    prevTab() {
+        let currPage = this.currentTabIndex();
+        if (--currPage < 0) this.currentTab = this.tabIndexToName(this.tabs.length - 1);
+        else this.currentTab = this.tabIndexToName(currPage);
+        this.layout.prev();
+        this.nav.select(this.currentTabIndex());
     }
 
     createContentBox() {
@@ -155,68 +190,44 @@ class UI {
     }
 
     createNav() {
+        let commands = {};
 
-        // this.navContainer = this.grid.set(12, 3, 12, 3, blessed.box, {
-        //     top: 0,
-        //     left: 0,
-        //     width: '100%-1',
-        //     height: 3,
-        //     border: 'line',
-        // });
-
-        // this.navContainer = blessed.box({
-        //     parent: this.layout,
-        //     top: 0,
-        //     left: 0,
-        //     width: '100%-1',
-        //     height: 3,
-        //     border: 'line',
-        // });
-
-        return this.grid.set(0, 0, 1, 12, blessed.listbar, {
-            mouse: true,
-            commands: { // TODO: DRY this up
-                'Monitor': {
-                    keys: [1],
-                    callback: () => {
-                        if (this.currentTab.name === 'Monitor') return;
-                        this.currentTab.name = 'Monitor';
-                        this.currentTab.widget = this.monitorTab;
-                    }
-                },
-                'Create': {
-                    keys: [2],
-                    callback: () => {
-                        if (this.currentTab.name === 'Create') return;
-                        this.currentTab.widget.toggle();
-                        this.createTab.toggle();
-                        this.currentTab.name = 'Create';
-                        this.currentTab.widget = this.createTab;
-                    }
-                },
-                'About': {
-                    keys: [3],
-                    callback: () => {
-                        if (this.currentTab.name === 'About') return;
-                        this.currentTab.widget.toggle();
-                        this.aboutTab.toggle();
-                        this.currentTab.name = 'About';
-                        this.currentTab.widget = this.aboutTab;
-                    }
+        this.tabs.forEach((name, i) => {
+            commands[name] = {
+                keys: [i+1],
+                callback: () => {
+                    if (this.currentTab === name) return;
+                    this.currentTab = name;
+                    this.layout.setTab(i);
                 }
+            }
+        });
+
+        return blessed.listbar({
+            mouse: true,
+            left: 0,
+            top: 0,
+            width: '100%',
+            height: 1,
+            padding: {
+                left: -1
             },
+            commands: commands,
             style: {
+                bg: 'white',
                 selected: {
-                    fg: 'blue'
+                    bg: 'blue',
+                    fg: 'white'
                 },
                 item: {
-                    fg: '#676767',
+                    bg: 'white',
+                    fg: 'black',
                     hover: {
                         fg: 'red'
                     }
                 }
             }
-        })
+        });
     }
 
     createProgressDetailsButton(alignParent, name) {

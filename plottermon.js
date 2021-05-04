@@ -45,18 +45,18 @@ class Main {
     const payload = [];
     for (const i in logs) {
       payload.push([logs[i], names[i]]);
-      // this.processFile(logs[i], names[i]);
     }
-    this.analyzer.send({
-      type: messages.PRINT,
-      payload: payload
-    });
+
+    // this.analyzer.send({
+    //   type: this.command,
+    //   payload: payload
+    // });
   }
 
   checkCommands() {
     switch (this.command) {
       case "watch":
-        this.initLogAnalyzer();
+        // this.initLogAnalyzer();
         this.ui = new UI();
         this.init();
         break;
@@ -79,10 +79,6 @@ class Main {
     const parameters = [];
 
     this.analyzer = fork(analyzerPath, parameters, options);
-
-    this.analyzer.on('message', message => {
-      console.log('message from child:', message);
-    });
   }
 
 }
