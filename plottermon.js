@@ -31,38 +31,25 @@ class Main {
 
   async init() {
 
-    const plots = await Plots.get();
-
-    const logs = Object.entries(plots).map(plot => plot[1].logLocation);
-    const names = Object.keys(plots);
-
     if (this.command == 'watch') {
       // this.ui.initMonitorTab(plots);
 
       this.ui.draw();
     }
 
-    const payload = [];
-    for (const i in logs) {
-      payload.push([logs[i], names[i]]);
-    }
-
-    // this.analyzer.send({
-    //   type: this.command,
-    //   payload: payload
-    // });
   }
 
   checkCommands() {
     switch (this.command) {
       case "watch":
-        // this.initLogAnalyzer();
+        this.initLogAnalyzer();
         this.ui = new UI();
+        this.initPlotMonitor();
         this.init();
         break;
       case "print":
         this.initLogAnalyzer();
-        this.init();
+        this.initPlotMonitor();
         break;
       default:
         console.log("[Error] Unknown command: " + this.command)
@@ -74,11 +61,50 @@ class Main {
   initLogAnalyzer() {
     const analyzerPath = path.resolve('logAnalyzer.js');
     const options = {
-      stdio: [ 'ignore', 'inherit', 'inherit', 'ipc' ]
+      stdio: [ 'ignore', 'inherit', 'inherit', 'ipc' ] // ignore stdin, use parent stdout & stderr, create ipc channel
     };
     const parameters = [];
 
     this.analyzer = fork(analyzerPath, parameters, options);
+  }
+
+  initPlotMonitor() {
+    const monitorPath = path.resolve('plots.js');
+    const options = {
+      stdio: [ 'ignore', 'ignore', 'ignore', 'ipc' ] // ignore stdin, stdout, stderr, create ipc channel
+    };
+    const parameters = [];
+
+    this.plots = fork(monitorPath, parameters, options);
+
+    this.plots.on('message', (message) => {
+      switch (message.type) {
+        case messages.PLOT_RESPONSE:
+          const plots = message.payload;
+
+          if (this.command == 'print') {
+            const logs = Object.entries(plots).map(plot => plot[1].logLocation);
+            const names = Object.keys(plots);
+
+            const payload = [];
+            for (const i in logs) {
+              payload.push([logs[i], names[i]]);
+            }
+
+            this.analyzer.send({
+              type: this.command,
+              payload: payload
+            });
+          } else {
+            this.ui.setPlots(plots);
+          }
+          break;
+      }
+    });
+
+    this.plots.send({
+      type: messages.PRINT
+    })
   }
 
 }

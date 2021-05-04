@@ -1,8 +1,25 @@
 const { snapshot } = require("process-list");
+const process = require('process');
 const yargs = require('yargs');
+const messages = require('./messageTypes');
 
 class Plots {
-    static async get() {
+    constructor() {
+        process.on('message', async (message) => {
+            switch (message.type) {
+                case messages.PRINT:
+                    const plots = await this.get();
+                    process.send({
+                        type: messages.PLOT_RESPONSE,
+                        payload: plots
+                    });
+                    process.exit();
+                    break;
+            }
+        });
+    }
+
+    async get() {
         const processes = await snapshot();
         const screens = processes.filter(proc => proc.name === 'screen' && proc.cmdline.includes('chia plots create'));
 
@@ -32,4 +49,4 @@ class Plots {
     }
 }
 
-module.exports = Plots;
+new Plots();

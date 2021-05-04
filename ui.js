@@ -102,17 +102,6 @@ class UI {
         this.nav.select(this.currentTabIndex());
     }
 
-    createContentBox() {
-        return blessed.layout({
-            parent: this.layout,
-            top: this.navContainer.abottom,
-            left: 0,
-            width: '100%-1',
-            height: `99%-${this.navContainer.height}`,
-            border: 'line'
-        });
-    }
-
     createDetailsTable() {
         return blessed.table({
             parent: this.monitorTab,
@@ -297,9 +286,11 @@ class UI {
         });
     }
 
+    setPlots(plots) {
+        this.plots = plots;
+    }
+
     draw() {
-        // this.screen.append(this.layout);
-        // this.screen.render();
         this.layout.start();
     }
 }
