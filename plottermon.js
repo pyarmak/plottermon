@@ -16,7 +16,7 @@ class Main {
           type: 'string'
         })
       })
-      .example('$0 watch ~/chialogs', 'Continuously monitor the progress of all chia plots logging to files in ~/chialogs')
+      .example('$0 watch', 'Continuously monitor the progress of all chia plots')
       .demandCommand(1, 'No command provided. Please provide a command e.g. watch')
       .wrap(Math.min(100, yargs.terminalWidth()))
       .help('h')

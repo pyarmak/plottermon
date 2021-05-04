@@ -58,7 +58,7 @@ class UI {
             screen: this.screen,
             interval: 0, // How often to switch views (we set it to 0 to never swicth automatically)
             controlKeys: false, // Disable built-in right and left keyboard arrows control view rotation (we implement a better method below)
-            rotate: true
+            rotate: true // Circle back to the first view when we reach the end
         });
 
         // Bind view rotation keys and hook them into the interactive navbar
