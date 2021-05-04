@@ -10,10 +10,6 @@ class UI {
         });
         this.screen.title = 'Plottermon - Chia Plotting Monitor';
 
-        this.plotProgressBars = {};
-
-        this.TOTAL_MEM = os.totalmem();
-
         // Quit on Escape, q, or Control-C.
         this.screen.key(['escape', 'q', 'C-c'], function (ch, key) {
             if (quitCallback && typeof quitCallback === 'function') quitCallback();
@@ -24,6 +20,10 @@ class UI {
     }
 
     init() {
+        this.plotProgressBars = {};
+
+        this.TOTAL_MEM = os.totalmem();
+
         this.tabs = ['Monitor', 'Create', 'About'];
         this.currentTab = this.tabs[0];
         const pages = [];
@@ -32,6 +32,7 @@ class UI {
             pages.push(this.createTab(tab));
         }
         this.initLayout(pages);
+        this.layout.start();
     }
 
     createTab(title) {
@@ -53,13 +54,14 @@ class UI {
             this.move();
         };
 
-        this.layout = new contrib.carousel( pages
-                                        , { screen: this.screen
-                                        , interval: 0 //how often to switch views (set 0 to never swicth automatically)
-                                        , controlKeys: false  //should right and left keyboard arrows control view rotation
-                                        , rotate: true
-                                        });
+        this.layout = new contrib.carousel(pages, {
+            screen: this.screen,
+            interval: 0, // How often to switch views (we set it to 0 to never swicth automatically)
+            controlKeys: false, // Disable built-in right and left keyboard arrows control view rotation (we implement a better method below)
+            rotate: true
+        });
 
+        // Bind view rotation keys and hook them into the interactive navbar
         this.screen.key(['right', 'left', 'home', 'end'], (ch, key) => {
             if (key.name=='right') this.nextTab();
             if (key.name=='left') this.prevTab();
@@ -290,9 +292,6 @@ class UI {
         this.plots = plots;
     }
 
-    draw() {
-        this.layout.start();
-    }
 }
 
 module.exports = UI;

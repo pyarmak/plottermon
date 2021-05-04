@@ -3,7 +3,6 @@ const path = require('path');
 const { fork } = require('child_process');
 const yargs = require('yargs');
 const UI = require('./ui');
-const Plots = require('./plots');
 const messages = require('./messageTypes');
 
 class Main {
@@ -29,23 +28,12 @@ class Main {
     this.checkCommands();
   }
 
-  async init() {
-
-    if (this.command == 'watch') {
-      // this.ui.initMonitorTab(plots);
-
-      this.ui.draw();
-    }
-
-  }
-
   checkCommands() {
     switch (this.command) {
       case "watch":
-        this.initLogAnalyzer();
         this.ui = new UI();
+        this.initLogAnalyzer();
         this.initPlotMonitor();
-        this.init();
         break;
       case "print":
         this.initLogAnalyzer();
