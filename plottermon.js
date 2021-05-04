@@ -50,7 +50,7 @@ class Main {
   }
 
   initLogAnalyzer() {
-    const analyzerPath = path.resolve('logAnalyzer.js');
+    const analyzerPath = path.resolve(__dirname, 'logAnalyzer.js');
     const options = {
       stdio: ['ignore', 'inherit', 'inherit', 'ipc'] // ignore stdin, use parent stdout & stderr, create ipc channel
     };
@@ -70,7 +70,7 @@ class Main {
   }
 
   initPlotProcessMonitor() {
-    const monitorPath = path.resolve('plotProcessMonitor.js');
+    const monitorPath = path.resolve(__dirname, 'plotProcessMonitor.js');
     const options = {
       stdio: [ 'ignore', 'ignore', 'ignore', 'ipc' ] // ignore stdin, stdout, stderr, create ipc channel
     };
