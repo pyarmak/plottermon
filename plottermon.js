@@ -33,11 +33,11 @@ class Main {
       case "watch":
         this.ui = new UI();
         this.initLogAnalyzer();
-        this.initPlotMonitor();
+        this.initPlotProcessMonitor();
         break;
       case "print":
         this.initLogAnalyzer();
-        this.initPlotMonitor();
+        this.initPlotProcessMonitor();
         break;
       default:
         console.log("[Error] Unknown command: " + this.command)
@@ -56,8 +56,8 @@ class Main {
     this.analyzer = fork(analyzerPath, parameters, options);
   }
 
-  initPlotMonitor() {
-    const monitorPath = path.resolve('plots.js');
+  initPlotProcessMonitor() {
+    const monitorPath = path.resolve('plotProcessMonitor.js');
     const options = {
       stdio: [ 'ignore', 'ignore', 'ignore', 'ipc' ] // ignore stdin, stdout, stderr, create ipc channel
     };
