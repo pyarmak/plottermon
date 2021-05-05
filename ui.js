@@ -21,9 +21,9 @@ class UI {
     init() {
         this.state = {
             _plots: null,
-            _plotsListeners: [],
             _stats: null,
-            _statsListeners: [],
+            _plotsListeners: {},
+            _statsListeners: {},
             plotProgressBars: {},
             currentProgress: {},
             get stats() {
@@ -31,8 +31,8 @@ class UI {
             },
             set stats(v) {
                 this._stats = v;
-                if (this._statsListeners.length > 0) {
-                    for (const listener of this._statsListeners) {
+                if (Object.keys(this._statsListeners).length > 0) {
+                    for (const listener of Object.values(this._statsListeners)) {
                         listener(v);
                     }
                 }
@@ -42,14 +42,14 @@ class UI {
             },
             set plots(v) {
                 this._plots = v;
-                if (this._plotsListeners.length > 0) {
-                    for (const listener of this._plotsListeners) {
+                if (Object.keys(this._plotsListeners).length > 0) {
+                    for (const listener of Object.values(this._plotsListeners)) {
                         listener(v);
                     }
                 }
             },
-            addListener: function(type, listener) {
-                this['_'+type+'Listeners'].push(listener);
+            addListener: function(name, type, listener) {
+                this['_'+type+'Listeners'][name] = listener;
             }
         };
 
@@ -87,7 +87,7 @@ class UI {
 
                     this.screen.render();
                 }
-                this.state.addListener('plots', plots => {
+                this.state.addListener('monitor-tab', 'plots', plots => {
                     this.initMonitorTab(plots);
                     this.screen.render();
                 });
@@ -186,17 +186,21 @@ class UI {
         ]);
     }
 
-    updateCpuDonut(name) { // TODO: add RAM donut
+    updateResourceDonuts(name) {
         const pid = this.state.plots[name].process.pid;
-        const { cpu } = this.state.stats[pid];
-        this.state.addListener('stats', stats => {
-            const { cpu } = stats[pid];
+        const { cpu, memory } = this.state.stats[pid];
+        const ram = this.TOTAL_MEM / memory;
+        this.state.addListener('donuts', 'stats', stats => { 
+            const { cpu, memory } = stats[pid];
+            const ram = this.TOTAL_MEM / memory;
             this.donut.setData([
-                {percent: cpu, label: 'CPU', color: 'green'}
+                {percent: cpu, label: 'CPU', color: 'green'},
+                {percent: ram, label: 'RAM', color: 'red'},
             ])
         });
         this.donut.setData([
-            {percent: cpu, label: 'CPU', color: 'green'}
+            {percent: cpu, label: 'CPU', color: 'green'},
+            {percent: ram, label: 'RAM', color: 'red'},
         ]);
     }
 
@@ -255,15 +259,14 @@ class UI {
             left: 'center',
             width: 30,
             height: 10,
-            label: 'Resources', // TODO: align label better
             radius: 8,
             arcWidth: 3,
             remainColor: 'black',
             yPadding: 2,
             hidden: true,
-            data: [ // TODO: enable RAM donut
+            data: [
                 {percent: 0, label: 'CPU', color: 'green'},
-                // {percent: 0, label: 'RAM', color: 'red'}
+                {percent: 0, label: 'RAM', color: 'red'}
             ]
         });
         this.screen.append(this.donut);
@@ -352,7 +355,7 @@ class UI {
             this.donut.show();
             this.donutSeparator.show();
             this.detailsTable.show();
-            this.updateCpuDonut(name);
+            this.updateResourceDonuts(name);
             this.updateDetailsTable(name);
         });
 

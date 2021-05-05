@@ -27,7 +27,7 @@ class PlotProcessMonitor {
     }
 
     async getPlots() {
-        const processes = await snapshot();
+        const processes = await snapshot('pid', 'name', 'cmdline');
         const screens = processes.filter(proc => proc.name === 'screen' && proc.cmdline.includes('chia plots create'));
 
         let plots = {};
