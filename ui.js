@@ -22,8 +22,21 @@ class UI {
         this.state = {
             _plots: null,
             _plotsListeners: [],
+            _stats: null,
+            _statsListeners: [],
             plotProgressBars: {},
             currentProgress: {},
+            get stats() {
+                return this._stats;
+            },
+            set stats(v) {
+                this._stats = v;
+                if (this._statsListeners.length > 0) {
+                    for (const listener of this._statsListeners) {
+                        listener(v);
+                    }
+                }
+            },
             get plots() {
                 return this._plots;
             },
@@ -55,7 +68,6 @@ class UI {
 
     createTab(title) {
         return (screen) => {
-            // const content = new grid({rows: 12, cols: 12, screen: this.screen, hideBorder: true});
 
             this.nav = this.createNav();
             screen.append(this.nav);
@@ -153,17 +165,17 @@ class UI {
         this.nav.select(this.currentTabIndex());
     }
 
-    createDetailsTable() {
+    createDetailsTable(top) {
         return blessed.table({
-            parent: this.monitorTab,
+            parent: this.screen,
             width: '99%',
-            left: 0,
-            top: this.donutSeparator.abottom,
+            left: 1,
+            top: top,
         });
     }
 
     updateDetailsTable(name) {
-        const {argv, logLocation} = this.plots[name];
+        const {argv, logLocation} = this.state.plots[name];
         let header = Object.keys(argv);
         let data = Object.values(argv).map(v => v.toString());
         header.push('log');
@@ -174,10 +186,17 @@ class UI {
         ]);
     }
 
-    updateCpuDonut(name) {
-        const cpu = this.plots[name].process.cpu;
+    updateCpuDonut(name) { // TODO: add RAM donut
+        const pid = this.state.plots[name].process.pid;
+        const { cpu } = this.state.stats[pid];
+        this.state.addListener('stats', stats => {
+            const { cpu } = stats[pid];
+            this.donut.setData([
+                {percent: cpu, label: 'CPU', color: 'green'}
+            ])
+        });
         this.donut.setData([
-            {percent: cpu, lable: 'CPU', color: 'green'}
+            {percent: cpu, label: 'CPU', color: 'green'}
         ]);
     }
 
@@ -209,24 +228,45 @@ class UI {
             button = this.createProgressDetailsButton(parent, name);
             this.state.plotProgressBars[name] = this.createProgressBar(button, name);
         }
-        
-        // this.plotSeparator = this.createSeparator(this.monitorTab, button);
 
-        // this.donut = contrib.donut({
-        //     parent: this.monitorTab,
-        //     top: 0,
-        //     left: 0,
-        //     label: 'Resources',
-        //     radius: 8,
-        //     arcWidth: 3,
-        //     remainColor: 'black',
-        //     yPadding: 2,
-        //     data: [
-        //         {percent: 80, label: 'CPU', color: 'green'}
-        //     ]
-        // });
-        // this.donutSeparator = this.createSeparator(this.monitorTab, this.donut);
-        // this.detailsTable = this.createDetailsTable();
+        const offset = Math.round(Object.keys(plots).length / 2) + 3;
+        
+        this.plotSeparator = this.createSeparator(this.content, button);
+        this.createResourceDonuts(offset);
+        this.donutSeparator = blessed.line({
+            parent: this.screen,
+            width: '99%',
+            left: 'center',
+            top: offset + 7,
+            orientation: 'horizontal',
+            type: 'bg',
+            ch: '-',
+            hidden: true
+        });
+        this.donutSeparator.setFront();
+        this.screen.append(this.donutSeparator);
+        this.detailsTable = this.createDetailsTable(offset + 9);
+    }
+
+    createResourceDonuts(top) {
+        this.donut = contrib.donut({
+            parent: this.screen,
+            top: top,
+            left: 'center',
+            width: 30,
+            height: 10,
+            label: 'Resources', // TODO: align label better
+            radius: 8,
+            arcWidth: 3,
+            remainColor: 'black',
+            yPadding: 2,
+            hidden: true,
+            data: [ // TODO: enable RAM donut
+                {percent: 0, label: 'CPU', color: 'green'},
+                // {percent: 0, label: 'RAM', color: 'red'}
+            ]
+        });
+        this.screen.append(this.donut);
     }
 
     createNav() {
@@ -309,14 +349,51 @@ class UI {
         });
 
         details.on('press', () => {
+            this.donut.show();
+            this.donutSeparator.show();
+            this.detailsTable.show();
             this.updateCpuDonut(name);
-            // this.updateDetailsTable(name);
+            this.updateDetailsTable(name);
         });
 
         return form;
     }
 
     createProgressBar(button, name) {
+        // override default progressbar renderer to allow for truncation of long content string
+        blessed.progressbar.prototype.render = function() {
+            var ret = this._render();
+            if (!ret) return;
+
+            var xi = ret.xi
+                , xl = ret.xl
+                , yi = ret.yi
+                , yl = ret.yl
+                , dattr;
+
+            if (this.border) xi++, yi++, xl--, yl--;
+
+            if (this.orientation === 'horizontal') {
+                xl = xi + ((xl - xi) * (this.filled / 100)) | 0;
+            } else if (this.orientation === 'vertical') {
+                yi = yi + ((yl - yi) - (((yl - yi) * (this.filled / 100)) | 0));
+            }
+
+            dattr = this.sattr(this.style.bar);
+
+            this.screen.fillRegion(dattr, this.pch, xi, xl, yi, yl);
+
+            if (this.content) {
+                var line = this.screen.lines[yi];
+                for (var i = 0; i < this.content.length; i++) {
+                    if (line[xi + i] && line[xi + i][1]) line[xi + i][1] = this.content[i];
+                }
+                line.dirty = true;
+            }
+
+            return ret;
+        };
+
         return blessed.progressbar({
             parent: this.content,
             content: name,
@@ -328,13 +405,18 @@ class UI {
             filled: 0,
             keys: false,
             mouse: false,
+            shrink: true,
             style: {
-                bg: '#676767',
+                bg: 'gray',
                 bar: {
                     bg: 'blue',
                 }
             }
         });
+    }
+
+    setStats(stats) {
+        this.state.stats = stats;
     }
 
     setPlots(plots) {

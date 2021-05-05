@@ -20,6 +20,7 @@
     "@logdna/tail-file": "^2.0.6",
     "blessed": "^0.1.81",
     "blessed-contrib": "^4.8.21",
+    "pidusage": "^2.0.21",
     "process-list": "^2.0.0",
     "split2": "^3.2.2",
     "yargs": "^16.2.0"

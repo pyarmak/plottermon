@@ -85,6 +85,10 @@ class Main {
 
           if (this.command == 'watch') {
             this.ui.setPlots(plots);
+            this.plots.send({
+              type: messages.MONITOR_PLOTTERS,
+              payload: 1000
+            });
           }
 
           this.analyzer.send({
@@ -92,11 +96,15 @@ class Main {
             payload: this.getAnalyzerPayload(plots)
           });
           break;
+        case messages.PLOTTER_STATS:
+          this.ui.setStats(message.payload);
+          break;
       }
     });
 
     this.plots.send({
-      type: messages.PRINT
+      type: messages.GET_PLOTS,
+      payload: (this.command == messages.PRINT) // quits the child-process after getting plots when this is true
     })
   }
 

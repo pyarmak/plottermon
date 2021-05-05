@@ -1,19 +1,26 @@
-const { snapshot } = require("process-list");
+const { snapshot } = require('process-list');
+const pidusage = require('pidusage');
 const process = require('process');
 const yargs = require('yargs');
 const messages = require('./messageTypes');
 
 class PlotProcessMonitor {
     constructor() {
+        this.pids = [];
+
         process.on('message', async (message) => {
             switch (message.type) {
-                case messages.PRINT:
+                case messages.GET_PLOTS:
                     const plots = await this.getPlots();
                     process.send({
                         type: messages.PLOT_RESPONSE,
                         payload: plots
                     });
-                    process.exit();
+                    if (message.payload) process.exit();
+                    break;
+                case messages.MONITOR_PLOTTERS:
+                    this.getPlotterStats();
+                    this.monitorPlotterStats(message.payload);
                     break;
             }
         });
@@ -40,12 +47,28 @@ class PlotProcessMonitor {
             for (const [k, v] of Object.entries(plots)) {
                 if (process.name.includes('python') && process.cmdline.includes(v.argv.t)) {
                     plots[k].process = process;
+                    this.pids.push(process.pid);
                     break;
                 }
             }
         };
 
         return plots;
+    }
+
+    async getPlotterStats() {
+        const stats = await pidusage(this.pids);
+        process.send({
+            type: messages.PLOTTER_STATS,
+            payload: stats
+        });
+    }
+
+    async monitorPlotterStats(time) {
+        this.interval = setTimeout(async () => {
+            await this.getPlotterStats();
+            this.monitorPlotterStats(time);
+        }, time);
     }
 }
 
