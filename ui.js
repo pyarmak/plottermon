@@ -385,10 +385,12 @@ class UI {
 
             if (this.content) {
                 var line = this.screen.lines[yi];
-                for (var i = 0; i < this.content.length; i++) {
-                    if (line[xi + i] && line[xi + i][1]) line[xi + i][1] = this.content[i];
+                if (line) {
+                    for (var i = 0; i < this.content.length; i++) {
+                        if (line[xi + i] && line[xi + i][1]) line[xi + i][1] = this.content[i];
+                    }
+                    line.dirty = true;
                 }
-                line.dirty = true;
             }
 
             return ret;
