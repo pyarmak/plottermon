@@ -168,6 +168,49 @@ class UI {
     }
 
     createDetailsTable(parent, top) {
+        // Undo a stupid "fix" in the blessed.table _calculateMaxes function...
+        // TODO: Move all of the blessed overrides into a single external file
+        blessed.table.prototype._calculateMaxes = function() {
+            var self = this;
+            var maxes = [];
+
+            if (this.detached) return;
+
+            this.rows = this.rows || [];
+
+            this.rows.forEach(function (row) {
+                row.forEach(function (cell, i) {
+                    var clen = self.strWidth(cell);
+                    if (!maxes[i] || maxes[i] < clen) {
+                        maxes[i] = clen;
+                    }
+                });
+            });
+
+            var total = maxes.reduce(function (total, max) {
+                return total + max;
+            }, 0);
+            total += maxes.length + 1;
+
+            if (this.position.width != null) {
+                var missing = this.width - total;
+                var w = missing / maxes.length | 0;
+                var wr = missing % maxes.length;
+                maxes = maxes.map(function (max, i) {
+                    if (i === maxes.length - 1) {
+                        return max + w + wr;
+                    }
+                    return max + w;
+                });
+            } else {
+                maxes = maxes.map(function (max) {
+                    return max + self.pad;
+                });
+            }
+
+            return this._maxes = maxes;
+        }
+
         return blessed.table({
             parent: parent,
             width: '99%',
