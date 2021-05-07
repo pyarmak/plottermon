@@ -43,15 +43,11 @@ class PlotProcessMonitor {
             plots[name] = {logLocation: logLocation, argv: argv};
         }
 
-        for (const process of processes) {
-            for (const [k, v] of Object.entries(plots)) {
-                if (process.name.includes('python') && process.cmdline.includes(v.argv.t)) {
-                    plots[k].process = process;
-                    this.pids.push(process.pid);
-                    break;
-                }
-            }
-        };
+        for (const [k, v] of Object.entries(plots)) {
+            const process = processes.find(process => process.name.includes('python') && process.cmdline.includes(v.argv.t));
+            plots[k].process = process;
+            this.pids.push(process.pid);
+        }
 
         return plots;
     }

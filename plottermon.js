@@ -65,6 +65,7 @@ class Main {
             this.ui.setProgress(...message.payload);
             break;
           case messages.LOG_STATS:
+            this.ui.setLogStats(message.payload);
             break;
         }
       });

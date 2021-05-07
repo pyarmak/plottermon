@@ -24,7 +24,7 @@ class LogAnalyzer {
         this.TOTAL_PROGRESS = 22;
 
         process.on('message', message => {
-            switch (message.type) {
+            switch (message.type) { //TODO: Sort the plots
                 case messages.PRINT:
                     const promises = [];
                     this.command = 'print';

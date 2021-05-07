@@ -24,10 +24,23 @@ class UI {
         this.state = {
             _plots: null,
             _stats: null,
+            _plotStats: null,
+            _plotStatsListeners: {},
             _plotsListeners: {},
             _statsListeners: {},
             plotProgressBars: {},
             currentProgress: {},
+            get plotStats() {
+                return this._plotStats;
+            },
+            set plotStats(v) {
+                this._plotStats = v;
+                if (Object.keys(this._plotStatsListeners).length > 0) {
+                    for (const listener of Object.values(this._plotStatsListeners)) {
+                        listener(v);
+                    }
+                }
+            },
             get stats() {
                 return this._stats;
             },
@@ -317,30 +330,8 @@ class UI {
         this.detailsTable = this.createDetailsTable(launchParamsBox, 0);
         launchParamsBox.append(this.detailsTable);
 
-        this.logStatsTable = contrib.table(
-            { parent: layout
-            , keys: false
-            , fg: 'white'
-            // , selectedFg: 'white'
-            // , selectedBg: 'blue'
-            , interactive: false
-            , label: 'Stats'
-            , width: 36
-            , height: '100%-2'
-            // , left: 31
-            , top: offset + 5
-            , border: {type: "line", fg: "cyan"}
-            , columnSpacing: 1 //in chars
-            , columnWidth: [14, 10, 10] /*in chars*/ });
-
-        layout.append(this.logStatsTable);
-
-        this.logStatsTable.setData({ // TODO: Make dynamically update
-            headers: ['Plot', 'CPU (%)', 'Time (s)'],
-            data:
-                [['Plot #1', '5900', '1932.23'],
-                ['Plot #1', '5900', '1932.23']]
-        });
+        this.plotStatsTable = this.createPlotStatsTable(layout, offset);
+        layout.append(this.plotStatsTable);
 
         this.donut = this.createResourceDonuts(layout);
         layout.append(this.donut);
@@ -351,11 +342,56 @@ class UI {
         this.monitorTabLayout = layout;
     }
 
+    createPlotStatsTable(parent, offset) {
+        return contrib.table(
+            {
+                parent: parent
+                , keys: false
+                , fg: 'white'
+                // , selectedFg: 'white'
+                // , selectedBg: 'blue'
+                , interactive: false
+                , label: 'Stats'
+                , width: 38
+                , height: '100%-2'
+                // , left: 31
+                , top: offset + 5
+                , border: { type: "line", fg: "cyan" }
+                , columnSpacing: 1 //in chars
+                , columnWidth: [5, 6, 12, 12] /*in chars*/
+            });
+    }
+
+    updatePlotStatsTable(name) { // TODO: add descriptive stats and split by phase
+        if (!this.state.plotStats || !this.state.plotStats[name]) return;
+        const plotStats = this.state.plotStats[name];
+
+        const data = [];
+
+        for (const [phase, stats] of Object.entries(plotStats)) {
+            stats.forEach((v, i) => {
+                data.push([
+                    i+1,
+                    parseInt(phase.split(' ')[1]),
+                    v.cpu,
+                    v.time
+                ]);
+            });
+        }
+        this.plotStatsTable.setData({
+            headers: ['Plot', 'Phase', 'CPU (%)', 'Time (s)'],
+            data: data
+        });
+        // this.state.addListener('plot-stats-table', 'plotStats', stats => { 
+
+        // })
+    }
+
     createResourceDonuts(parent) {
         return contrib.donut({
             parent: parent,
             top: this.detailsTable.abottom,
-            left: this.logStatsTable.aright,
+            left: this.plotStatsTable.aright,
             width: 30,
             height: 10,
             radius: 8,
@@ -456,6 +492,7 @@ class UI {
             this.detailsTable.show();
             this.updateResourceDonuts(name);
             this.updateDetailsTable(name);
+            this.updatePlotStatsTable(name);
         });
 
         return form;
@@ -525,6 +562,10 @@ class UI {
 
     setPlots(plots) {
         this.state.plots = plots;
+    }
+
+    setLogStats(stats) {
+        this.state.plotStats = stats;
     }
 
 }
