@@ -64,6 +64,8 @@ class Main {
           case messages.PROGRESS_UPDATE:
             this.ui.setProgress(...message.payload);
             break;
+          case messages.LOG_STATS:
+            break;
         }
       });
     }
@@ -81,7 +83,12 @@ class Main {
     this.plots.on('message', message => {
       switch (message.type) {
         case messages.PLOT_RESPONSE:
-          const plots = message.payload;
+          let plots = {};
+          Object.entries(message.payload).forEach(([name, plot]) => {
+            const started = plot.process;
+            if (started) plots[name] = plot;
+            else if (this.command == 'print') console.error(`[${name}] No plots started.`);
+          }); // TODO: Add some sort of note to watch about plots that have not been started
 
           if (this.command == 'watch') {
             this.ui.setPlots(plots);

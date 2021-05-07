@@ -6,5 +6,6 @@ module.exports = {
     PROGRESS_UPDATE: 'progress-update',
     PLOTTER_STATS: 'plotter-stats',
     MONITOR_PLOTTERS: 'monitor-plotters',
-    GET_PLOTS: 'get-plots'
+    GET_PLOTS: 'get-plots',
+    LOG_STATS: 'log-stats'
 }

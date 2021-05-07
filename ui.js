@@ -1,11 +1,13 @@
 const os = require('os');
 const blessed = require('blessed');
 const contrib = require('blessed-contrib');
+const { line } = require('blessed-contrib');
 
 class UI {
     constructor(quitCallback) {
         this.screen = blessed.screen({
-            smartCSR: true
+            smartCSR: true,
+            dockBorders: true
         });
         this.screen.title = 'Plottermon - Chia Plotting Monitor';
 
@@ -165,11 +167,13 @@ class UI {
         this.nav.select(this.currentTabIndex());
     }
 
-    createDetailsTable(top) {
+    createDetailsTable(parent, top) {
         return blessed.table({
-            parent: this.screen,
+            parent: parent,
             width: '99%',
-            left: 1,
+            height: '100%',
+            left: 0,
+            align: 'center',
             top: top,
         });
     }
@@ -186,21 +190,32 @@ class UI {
         ]);
     }
 
-    updateResourceDonuts(name) {
+    getDonutColor(percent) {
+        if (percent > 66) return 'red';
+        if (percent > 33) return 'yellow';
+        return 'green';
+    }
+
+    // TODO: Make RAM donut display raw used RAM instead of percentage
+    updateResourceDonuts(name) { // TODO: DRY this up
         const pid = this.state.plots[name].process.pid;
         const { cpu, memory } = this.state.stats[pid];
         const ram = this.TOTAL_MEM / memory;
+        const ramLabelColor = this.getDonutColor(ram);
+        const cpuLabelColor = this.getDonutColor(cpu);
         this.state.addListener('donuts', 'stats', stats => { 
             const { cpu, memory } = stats[pid];
             const ram = this.TOTAL_MEM / memory;
+            const ramLabelColor = this.getDonutColor(ram);
+            const cpuLabelColor = this.getDonutColor(cpu);
             this.donut.setData([
-                {percent: cpu, label: 'CPU', color: 'green'},
-                {percent: ram, label: 'RAM', color: 'red'},
+                {percent: cpu, label: 'CPU', color: cpuLabelColor},
+                {percent: ram, label: 'RAM', color: ramLabelColor},
             ])
         });
         this.donut.setData([
-            {percent: cpu, label: 'CPU', color: 'green'},
-            {percent: ram, label: 'RAM', color: 'red'},
+            {percent: cpu, label: 'CPU', color: cpuLabelColor},
+            {percent: ram, label: 'RAM', color: ramLabelColor},
         ]);
     }
 
@@ -226,6 +241,27 @@ class UI {
 
     initMonitorTab(plots) {
         let button;
+
+        const offset = Math.round(Object.keys(plots).length / 2) + 3;
+
+        const layout = blessed.layout({
+            parent: this.screen,
+            top: offset + 4,
+            width: '100%',
+            height: `100%-${offset + 4}`,
+            left: 0,
+            border: 'line',
+        });
+
+        const launchParamsBox = blessed.box({
+            parent: this.screen,
+            top: offset,
+            width: '100%',
+            height: 5,
+            left: 0,
+            border: 'line',
+            label: 'Launch Parameters'
+        });
         
         for (const [name, plot] of Object.entries(plots)) {
             const parent = button ? button : this.nav;
@@ -233,30 +269,61 @@ class UI {
             this.state.plotProgressBars[name] = this.createProgressBar(button, name);
         }
 
-        const offset = Math.round(Object.keys(plots).length / 2) + 3;
         
-        this.plotSeparator = this.createSeparator(this.content, button);
-        this.createResourceDonuts(offset);
-        this.donutSeparator = blessed.line({
-            parent: this.screen,
-            width: '99%',
-            left: 'center',
-            top: offset + 7,
-            orientation: 'horizontal',
-            type: 'bg',
-            ch: '-',
-            hidden: true
+        // this.plotSeparator = this.createSeparator(this.content, button);
+
+        this.detailsTable = this.createDetailsTable(launchParamsBox, 0);
+        launchParamsBox.append(this.detailsTable);
+
+        this.logStatsTable = contrib.table(
+            { parent: layout
+            , keys: false
+            , fg: 'white'
+            // , selectedFg: 'white'
+            // , selectedBg: 'blue'
+            , interactive: false
+            , label: 'Stats'
+            , width: 36
+            , height: '100%-2'
+            // , left: 31
+            , top: offset + 5
+            , border: {type: "line", fg: "cyan"}
+            , columnSpacing: 1 //in chars
+            , columnWidth: [14, 10, 10] /*in chars*/ });
+
+        layout.append(this.logStatsTable);
+
+        this.logStatsTable.setData({
+            headers: ['Plot', 'CPU (%)', 'Time (s)'],
+            data:
+                [['Plot #1', '5900', '1932.23'],
+                ['Plot #1', '5900', '1932.23']]
         });
-        this.donutSeparator.setFront();
-        this.screen.append(this.donutSeparator);
-        this.detailsTable = this.createDetailsTable(offset + 9);
+
+        this.donut = this.createResourceDonuts(layout);
+        layout.append(this.donut);
+
+        this.screen.append(launchParamsBox);
+        this.screen.append(layout);
+        // this.donutSeparator = blessed.line({
+        //     parent: this.screen,
+        //     width: '99%',
+        //     left: 'center',
+        //     top: offset + 7,
+        //     orientation: 'horizontal',
+        //     type: 'bg',
+        //     ch: '-',
+        //     hidden: true
+        // });
+        // this.donutSeparator.setFront();
+        // this.screen.append(this.donutSeparator);
     }
 
-    createResourceDonuts(top) {
-        this.donut = contrib.donut({
-            parent: this.screen,
-            top: top,
-            left: 'center',
+    createResourceDonuts(parent) {
+        return contrib.donut({
+            parent: parent,
+            top: this.detailsTable.abottom,
+            left: this.logStatsTable.aright,
             width: 30,
             height: 10,
             radius: 8,
@@ -269,7 +336,6 @@ class UI {
                 {percent: 0, label: 'RAM', color: 'red'}
             ]
         });
-        this.screen.append(this.donut);
     }
 
     createNav() {
@@ -353,7 +419,7 @@ class UI {
 
         details.on('press', () => {
             this.donut.show();
-            this.donutSeparator.show();
+            // this.donutSeparator.show();
             this.detailsTable.show();
             this.updateResourceDonuts(name);
             this.updateDetailsTable(name);

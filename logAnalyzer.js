@@ -45,6 +45,13 @@ class LogAnalyzer {
         });
     }
 
+    sendStats() {
+        process.send({
+            type: messages.LOG_STATS,
+            payload: this.stats
+        });
+    }
+
     parseLine(line, phase) {
         let stage;
         let done = false;
@@ -89,6 +96,7 @@ class LogAnalyzer {
             time: parseFloat(time),
             cpu: parseFloat(cpu)
         });
+        this.sendStats();
     }
 
     getPlotDescriptiveStats(stats) {
@@ -125,6 +133,7 @@ class LogAnalyzer {
         if (this.command == 'print') {
             console.log(`[${name}] Completed ${initialProgress.done} plots.`);
             console.log(`Current plot in phase ${initialProgress.phase} stage ${initialProgress.stage}/${this.PHASES[initialProgress.phase].steps}`);
+            if (!this.stats[name]) return;
             for (const [phase, stats] of Object.entries(this.stats[name])) {
                 console.log(`${phase} stats:`);
                 let tableData = {};
