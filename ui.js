@@ -294,6 +294,7 @@ class UI {
             height: `100%-${offset + 4}`,
             left: 0,
             border: 'line',
+            hidden: true,
         });
 
         const launchParamsBox = blessed.box({
@@ -302,6 +303,7 @@ class UI {
             width: '100%',
             height: 5,
             left: 0,
+            hidden: true,
             border: 'line',
             label: 'Launch Parameters'
         });
@@ -311,9 +313,6 @@ class UI {
             button = this.createProgressDetailsButton(parent, name);
             this.state.plotProgressBars[name] = this.createProgressBar(button, name);
         }
-
-        
-        // this.plotSeparator = this.createSeparator(this.content, button);
 
         this.detailsTable = this.createDetailsTable(launchParamsBox, 0);
         launchParamsBox.append(this.detailsTable);
@@ -336,7 +335,7 @@ class UI {
 
         layout.append(this.logStatsTable);
 
-        this.logStatsTable.setData({
+        this.logStatsTable.setData({ // TODO: Make dynamically update
             headers: ['Plot', 'CPU (%)', 'Time (s)'],
             data:
                 [['Plot #1', '5900', '1932.23'],
@@ -348,18 +347,8 @@ class UI {
 
         this.screen.append(launchParamsBox);
         this.screen.append(layout);
-        // this.donutSeparator = blessed.line({
-        //     parent: this.screen,
-        //     width: '99%',
-        //     left: 'center',
-        //     top: offset + 7,
-        //     orientation: 'horizontal',
-        //     type: 'bg',
-        //     ch: '-',
-        //     hidden: true
-        // });
-        // this.donutSeparator.setFront();
-        // this.screen.append(this.donutSeparator);
+        this.launchParamsBox = launchParamsBox;
+        this.monitorTabLayout = layout;
     }
 
     createResourceDonuts(parent) {
@@ -460,9 +449,10 @@ class UI {
             }
         });
 
-        details.on('press', () => {
+        details.on('press', () => { // TODO: Combine some of this stuff
             this.donut.show();
-            // this.donutSeparator.show();
+            this.monitorTabLayout.show();
+            this.launchParamsBox.show();
             this.detailsTable.show();
             this.updateResourceDonuts(name);
             this.updateDetailsTable(name);
