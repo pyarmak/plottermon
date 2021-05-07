@@ -4,7 +4,7 @@ const process = require('process');
 const yargs = require('yargs');
 const messages = require('./messageTypes');
 
-class PlotProcessMonitor {
+class PlotProcessMonitor { // TODO: use systeminformation instead of process-list & pidusage
     constructor() {
         this.pids = [];
 

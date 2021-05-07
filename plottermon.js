@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 const path = require('path');
+const fs = require('fs');
 const { fork } = require('child_process');
 const yargs = require('yargs');
 const UI = require('./ui');
@@ -40,7 +41,7 @@ class Main {
         break;
       case "print":
         this.initLogAnalyzer();
-        this.initPlotProcessMonitor();
+        // this.initPlotProcessMonitor();
         break;
       default:
         console.log("[Error] Unknown command: " + this.command)
@@ -68,6 +69,19 @@ class Main {
             this.ui.setLogStats(message.payload);
             break;
         }
+      });
+    } else if (this.command == 'print') {
+      fs.readdir(this.argv.directory, 'utf-8', (err, files) => {
+        const payload = [];
+        for (const file of files) {
+          const name = file.split('.log')[0];
+          payload.push([path.join(this.argv.directory, file), name]);
+        }
+
+        this.analyzer.send({
+          type: this.command,
+          payload: payload
+        });
       });
     }
   }
